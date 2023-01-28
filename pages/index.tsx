@@ -21,9 +21,9 @@ export default function Home() {
   const [secondID, setsecondID] = useState("");
   //食べ物
   const [foods, setFoods] = useState<any[]>([]);
-  //距離
-  const [calorie, setCalorie] = useState(500);
   //カロリー
+  const [calorie, setCalorie] = useState(0);
+  //距離
   const [distance, setDistance] = useState(0);
   //歩数
   const [step, setStep] = useState(0);
@@ -130,6 +130,7 @@ export default function Home() {
   };
 
   const removeDate = () => {
+    console.log(firstID);
     let fieldToEdit = doc(db, "first", firstID);
     deleteDoc(fieldToEdit)
       .then(() => {
@@ -176,6 +177,7 @@ export default function Home() {
       );
     });
     CalcStrideStep();
+    CalcConsumeCalory();
 
     if (processing) return;
     // 処理中フラグを上げる
@@ -207,34 +209,10 @@ export default function Home() {
     setStep(res);
   };
 
-  // db.collection("titles").onSnapshot(async (snapshot) =>
-  // // listsのデータがここで完成する
-  // {
-  //   const fileNameWithExts = snapshot.docs
-  //     .map((doc) => doc.data())
-  //     .map((name) => {
-  //       // console.log(name)
-  //       return {name.text, name.aaa};
-  //     });
-
-  // const foodsURL = await Promise.all(
-  //   nameOfFoods.map(async (nameOfFood) => {
-  //     const urls = `gs://pictures-storage-5b9d3.appspot.com/images/${nameOfFood}`;
-
-  //     const gsReference = ref(storage, urls);
-
-  //     const url = await getDownloadURL(gsReference).catch((err) =>
-  //       console.log(err)
-  //     );
-
-  //     const imageSize = await getImageSize(url).catch((e) =>
-  //       console.log(e.message)
-  //     );
-
-  //     return {
-  //       url,
-  //       fileNameWithExt,
-  //     }
+  const CalcConsumeCalory = () => {
+    // 1km あたり　40kcal
+    setCalorie(distance*40);
+  }
 
   return (
     <>
@@ -347,6 +325,12 @@ export default function Home() {
           <p>
             現在歩いた歩数:<span id="step">{step}</span>
             <span>歩</span>
+          </p>
+        </div>
+        <div className="calorie">
+          <p>
+            消費したカロリー:<span id="calorie">{calorie}</span>
+            <span>kcal</span>
           </p>
         </div>
         <div className="food">

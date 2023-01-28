@@ -1,6 +1,6 @@
 import vercel from "../../public/vercel.svg";
 import React from "react";
-import Image from "next/Image";
+import Image from "next/image";
 
 export default function Logo(){
     //最終的にGeoLunchのロゴに置き換える
