@@ -1,16 +1,245 @@
 import Head from "next/head";
+import React, { useState } from "react";
+import { db } from "../firebaseConfig.js";
+import { collection, setDoc, doc, addDoc } from "firebase/firestore";
+import { query, orderBy } from "firebase/firestore";
+import { onSnapshot, getDocs } from "firebase/firestore";
 
 export default function Home() {
+  //1回目の緯度
+  const [latitude, setLatitude] = useState(0);
+  //1回目の経度
+  const [longitude, setLongitude] = useState(0);
+  //2回目の緯度
+  const [secondlatitude, setsecondLatitude] = useState(0);
+  //2回目の経度
+  const [secondlongitude, setsecondLongitude] = useState(0);
+  //距離
+  const [distance, setDistance] = useState(0);
+  //歩数
+  const [step, setStep] = useState(0);
+  //処理中フラグ
+  const [processing, setProcessing] = useState(false);
+  // const [process, setProces] = useState(false);
+  //初回のデータ
+  // const [firstdata, setFirstdata] = useState([]);
+  type Todo = {
+    id: string;
+    latitude: number;
+    longitude: number;
+    date: any;
+  };
+
+  const [firedata, setFiredata] = useState<any[]>([]);
+  const [currentfiredata, setcurrentFiredata] = useState<any[]>([]);
+  const databaseRef = collection(db, "first");
+  const q = query(databaseRef, orderBy("latitude", "desc"));
+
+  //初回の緯度・経度取得
+  React.useEffect(() => {
+    navigator.geolocation.getCurrentPosition((position) => {
+      console.log(position.coords);
+      setLatitude(position.coords.latitude);
+      setLongitude(position.coords.longitude);
+      getfirst();
+      getsecond();
+      //latitude: 43.0300095,
+      //longitude: 141.4536927,
+      //altitude: null, accuracy: 15.407,
+      //altitudeAccuracy: null,
+      //accuracy: 15.407;
+      //altitude: null;
+      // altitudeAccuracy: null;
+      //heading: null;
+      //latitude: 43.0300095;
+      //longitude: 141.4536927;
+      // speed: null;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const getfirst = async () => {
+    const firstCollectionRef = collection(db, "first");
+    getDocs(firstCollectionRef).then((querySnapshot) => {
+      return setFiredata(
+        querySnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }))
+      );
+    });
+    console.log(firedata);
+  };
+
+  const getsecond = async () => {
+    const currentCollectionRef = collection(db, "current");
+    getDocs(currentCollectionRef).then((querySnapshot) => {
+      return setcurrentFiredata(
+        querySnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }))
+      );
+    });
+  };
+
+  //初回緯度経度firestoreにデータ保存
+  const addfirstDate = async () => {
+    if (processing) return;
+    // 処理中フラグを上げる
+    setProcessing(true);
+    const firstRef = collection(db, "first");
+    const newdate = new Date().toLocaleString("ja-JP");
+    console.log(latitude);
+    console.log(longitude);
+    await addDoc(firstRef, {
+      latitude: latitude,
+      date: newdate,
+      longitude: longitude,
+    })
+      .then(() => {
+        console.log("投稿ができました！");
+        setProcessing(false);
+        getfirst();
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
+
+  // 二点間の座標から距離を求める
+  function calcDistance(
+    nowLatitude: number,
+    nowLongitude: number,
+    prevLatitude: number,
+    prevLongitude: number
+  ): number {
+    const R = Math.PI / 180.0;
+    const EarthRadius = 6371;
+    nowLatitude *= R;
+    nowLongitude *= R;
+    prevLatitude *= R;
+    prevLongitude *= R;
+    const res =
+      EarthRadius *
+      Math.acos(
+        Math.cos(prevLatitude) *
+          Math.cos(nowLatitude) *
+          Math.cos(nowLongitude - prevLongitude) +
+          Math.sin(prevLatitude) * Math.sin(nowLatitude)
+      );
+    return res;
+  }
+
+  const GetCurrentGeo = async () => {
+    //ボタンを押したら，latitudeとlongitudeを設定
+    const prevLatitude = latitude;
+    const prevLongtitude = longitude;
+    navigator.geolocation.getCurrentPosition((position) => {
+      setLatitude(position.coords.latitude);
+      setLongitude(position.coords.longitude);
+      setDistance(
+        calcDistance(latitude, longitude, prevLatitude, prevLongtitude)
+      );
+    });
+    CalcStrideStep();
+
+    if (processing) return;
+    // 処理中フラグを上げる
+    setProcessing(true);
+    const firstRef = collection(db, "current");
+    const newdate = new Date().toLocaleString("ja-JP");
+    console.log(latitude);
+    console.log(longitude);
+
+    await addDoc(firstRef, {
+      latitude: latitude,
+      date: newdate,
+      longitude: longitude,
+    })
+      .then(() => {
+        console.log("投稿ができました！");
+        setProcessing(false);
+        getsecond();
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
+
+  // 距離から歩数を計算
+  const CalcStrideStep = () => {
+    const strideLength = 0.0008; //歩幅は80cm km換算
+    const res = Math.floor(distance / strideLength);
+    setStep(res);
+  };
+
   return (
     <>
       <Head>
-        <title>カロリー計算App</title>
+        <title>カロリー計算 | App</title>
         <meta name="description" content="Generated by create next app" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <div>
-        <p>aaaa</p>
+      <div className="center">
+        <div className="btn-margin">
+          <button
+            id="btn"
+            className="btn btn-outline-primary btn-lg"
+            onClick={GetCurrentGeo}
+          >
+            現在位置を取得する
+          </button>
+        </div>
+        <button
+          id="btn"
+          className="btn btn-outline-primary btn-lg"
+          onClick={addfirstDate}
+        >
+          1回目の位置を取得する
+        </button>
+        <h3>1回目の位置を取得する</h3>
+        <div className="txt-margin">
+          {firedata.map((data) => (
+            <div key={data.id}>
+              <p>
+                緯度：<span id="latitude">{data.latitude}</span>
+                <span>度</span>
+              </p>
+              <p>
+                経度：<span id="longitude">{data.longitude}</span>
+                <span>度</span>
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <h3>2回目の位置を取得する</h3>
+        <div className="txt-margin">
+          {currentfiredata.map((data) => (
+            <div key={data.id}>
+              <p>
+                緯度：<span id="latitude">{data.latitude}</span>
+                <span>度</span>
+              </p>
+              <p>
+                経度：<span id="longitude">{data.longitude}</span>
+                <span>度</span>
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="distance">
+          <p>
+            現在歩いた距離:<span id="distance">{distance}</span>
+            <span>km</span>
+          </p>
+        </div>
+        <div className="step">
+          <p>
+            現在歩いた歩数:<span id="step">{step}</span>
+            <span>歩</span>
+          </p>
+        </div>
+        <div className="food">
+          {/* TODO: 食べていいものをDBから引っ張ってきて表示させる */}
+        </div>
       </div>
     </>
   );
